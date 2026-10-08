@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>FitFlex - 个人健身计划与记录</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              400: '#34d399',
+              500: '#10b981',
+              600: '#059669',
+              accent: '#22c55e',
+            },
+            dark: {
+              900: '#0d1117',
+              800: '#161b22',
+              700: '#21262d',
+              600: '#30363d',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    body {
+      background-color: #0d1117;
+      color: #f0f6fc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .bottom-nav-blur {
+      background: rgba(22, 27, 34, 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+    input, select, button {
+      font-size: 16px !important; /* 防止 iOS 自动放大 */
+    }
+  </style>
+</head>
+<body class="pb-24 pt-4 px-4 min-h-screen flex flex-col justify-between max-w-md mx-auto">
+
+  <!-- 顶部 Header -->
+  <header class="flex items-center justify-between py-2 mb-4 border-b border-dark-700">
+    <div class="flex items-center space-x-2">
+      <div class="bg-gradient-to-r from-emerald-500 to-green-400 p-2 rounded-xl text-black font-bold">
+        <i data-lucide="dumbbell" class="w-6 h-6"></i>
+      </div>
+      <div>
+        <h1 class="text-xl font-black tracking-tight text-white">FitFlex</h1>
+        <p class="text-xs text-gray-400">智能健身计划与记录</p>
+      </div>
+    </div>
+    <div class="text-right">
+      <span id="todayDate" class="text-xs text-emerald-400 font-medium"></span>
+    </div>
+  </header>
+
+  <!-- 倒计时/休息提示悬浮框 -->
+  <div id="timerBar" class="hidden fixed top-2 left-4 right-4 max-w-md mx-auto bg-emerald-500 text-black font-bold p-3 rounded-2xl shadow-lg flex items-center justify-between z-50">
+    <div class="flex items-center space-x-2">
+      <i data-lucide="timer" class="w-5 h-5"></i>
+      <span>休息时间：<span id="timerText">60</span> 秒</span>
+    </div>
+    <button onclick="stopTimer()" class="bg-black text-white px-3 py-1 rounded-xl text-xs">跳过</button>
+  </div>
+
+  <!-- 内容切换区域 -->
+  <main class="flex-1">
+
+    <!-- 1. 制定计划页 (Tab 1) -->
+    <section id="tab-plan" class="space-y-4">
+      <div class="flex justify-between items-center">
+        <h2 class="text-lg font-bold flex items-center gap-2">
+          <i data-lucide="calendar-plus" class="w-5 h-5 text-emerald-400"></i> 我的训练计划
+        </h2>
+        <button onclick="openAddExerciseModal()" class="bg-emerald-500 hover:bg-emerald-600 text-black font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1 shadow-md">
+          <i data-lucide="plus" class="w-4 h-4"></i> 添加动作
+        </button>
+      </div>
+
+      <!-- 计划动作列表 -->
+      <div id="planList" class="space-y-3">
+        <!-- JS 动态渲染 -->
+      </div>
+    </section>
+
+    <!-- 2. 训练打卡/记录页 (Tab 2) -->
+    <section id="tab-log" class="hidden space-y-4">
+      <div class="flex justify-between items-center">
+        <h2 class="text-lg font-bold flex items-center gap-2">
+          <i data-lucide="play-circle" class="w-5 h-5 text-emerald-400"></i> 今日打卡打卡
+        </h2>
+        <span class="text-xs bg-dark-700 px-2.5 py-1 rounded-full text-gray-300" id="currentWorkoutDay"></span>
+      </div>
+
+      <div id="logExerciseList" class="space-y-4">
+        <!-- JS 动态渲染 -->
+      </div>
+
+      <button onclick="finishWorkout()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-black font-bold py-3.5 rounded-2xl text-base shadow-lg flex items-center justify-center gap-2 mt-6">
+        <i data-lucide="check-circle-2" class="w-5 h-5"></i> 完成今日训练并打卡
+      </button>
+    </section>
+
+    <!-- 3. 数据统计与分析 (Tab 3) -->
+    <section id="tab-stats" class="hidden space-y-4">
+      <h2 class="text-lg font-bold flex items-center gap-2">
+        <i data-lucide="line-chart" class="w-5 h-5 text-emerald-400"></i> 训练容量与趋势
+      </h2>
+
+      <!-- 卡片统计概览 -->
+      <div class="grid grid-cols-2 gap-3">
+        <div class="bg-dark-800 p-4 rounded-2xl border border-dark-700">
+          <p class="text-xs text-gray-400">本周累计容量</p>
+          <p class="text-xl font-bold text-emerald-400 mt-1" id="weeklyVolume">0 kg</p>
+        </div>
+        <div class="bg-dark-800 p-4 rounded-2xl border border-dark-700">
+          <p class="text-xs text-gray-400">累计打卡天数</p>
+          <p class="text-xl font-bold text-emerald-400 mt-1" id="totalDays">0 天</p>
+        </div>
+      </div>
+
+      <!-- 容量趋势图表 -->
+      <div class="bg-dark-800 p-4 rounded-2xl border border-dark-700">
+        <h3 class="text-xs text-gray-400 mb-3">近7次训练总容量 (kg)</h3>
+        <canvas id="volumeChart" class="w-full h-48"></canvas>
+      </div>
+
+      <!-- 打卡历史列表 -->
+      <div class="bg-dark-800 p-4 rounded-2xl border border-dark-700 space-y-3">
+        <h3 class="text-xs text-gray-400">最近打卡记录</h3>
+        <div id="historyLogs" class="space-y-2 text-xs divide-y divide-dark-700">
+          <!-- JS 动态渲染 -->
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- 底部导航栏 -->
+  <nav class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bottom-nav-blur border-t border-dark-700 px-6 py-2.5 flex justify-between items-center z-40">
+    <button onclick="switchTab('plan')" id="nav-plan" class="flex flex-col items-center text-emerald-400">
+      <i data-lucide="clipboard-list" class="w-5 h-5"></i>
+      <span class="text-[10px] mt-1 font-medium">计划</span>
+    </button>
+    <button onclick="switchTab('log')" id="nav-log" class="flex flex-col items-center text-gray-500">
+      <i data-lucide="dumbbell" class="w-5 h-5"></i>
+      <span class="text-[10px] mt-1 font-medium">打卡</span>
+    </button>
+    <button onclick="switchTab('stats')" id="nav-stats" class="flex flex-col items-center text-gray-500">
+      <i data-lucide="bar-chart-3" class="w-5 h-5"></i>
+      <span class="text-[10px] mt-1 font-medium">数据</span>
+    </button>
+  </nav>
+
+  <!-- 弹窗：添加动作 -->
+  <div id="addModal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-end justify-center p-4">
+    <div class="bg-dark-800 border border-dark-700 w-full max-w-md rounded-3xl p-5 space-y-4 animate-in fade-in slide-in-from-bottom duration-200">
+      <div class="flex justify-between items-center">
+        <h3 class="font-bold text-white">添加训练动作</h3>
+        <button onclick="closeAddExerciseModal()" class="text-gray-400"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <div class="space-y-3">
+        <div>
+          <label class="text-xs text-gray-400 mb-1 block">动作名称</label>
+          <input type="text" id="inputExName" placeholder="例如：杠铃卧推 / 哑铃深蹲" class="w-full bg-dark-900 border border-dark-600 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs text-gray-400 mb-1 block">目标部位</label>
+            <select id="inputExCategory" class="w-full bg-dark-900 border border-dark-600 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500">
+              <option value="胸部">胸部</option>
+              <option value="背部">背部</option>
+              <option value="腿部">腿部</option>
+              <option value="肩部">肩部</option>
+              <option value="手臂">手臂</option>
+              <option value="核心">核心</option>
+              <option value="有氧/自重">有氧/自重</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs text-gray-400 mb-1 block">目标组数</label>
+            <input type="number" id="inputExSets" value="4" class="w-full bg-dark-900 border border-dark-600 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500">
+          </div>
+        </div>
+      </div>
+
+      <button onclick="saveNewExercise()" class="w-full bg-emerald-500 text-black font-bold py-3 rounded-xl text-sm">保存并添加</button>
+    </div>
+  </div>
+
+  <!-- JavaScript 核心逻辑 -->
+  <script>
+    // 初始化数据
+    const defaultPlan = [
+      { id: '1', name: '杠铃卧推', category: '胸部', targetSets: 4 },
+      { id: '2', name: '上斜哑铃卧推', category: '胸部', targetSets: 3 },
+      { id: '3', name: '绳索夹胸', category: '胸部', targetSets: 4 },
+    ];
+
+    let plans = JSON.parse(localStorage.getItem('fitflex_plans')) || defaultPlan;
+    let logs = JSON.parse(localStorage.getItem('fitflex_logs')) || [];
+    let activeTab = 'plan';
+    let timerInterval = null;
+    let chartInstance = null;
+
+    // 页面加载
+    document.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      document.getElementById('todayDate').innerText = new Date().toLocaleDateString('zh-CN', { month: 'short', day: 'numeric', weekday: 'short' });
+      renderPlans();
+      renderLogForm();
+    });
+
+    // 标签页切换
+    function switchTab(tab) {
+      activeTab = tab;
+      ['plan', 'log', 'stats'].forEach(t => {
+        document.getElementById(`tab-${t}`).classList.add('hidden');
+        document.getElementById(`nav-${t}`).className = "flex flex-col items-center text-gray-500";
+      });
+
+      document.getElementById(`tab-${tab}`).classList.remove('hidden');
+      document.getElementById(`nav-${tab}`).className = "flex flex-col items-center text-emerald-400";
+
+      if (tab === 'stats') renderStats();
+      if (tab === 'log') renderLogForm();
+    }
+
+    // 1. 渲染计划列表
+    function renderPlans() {
+      const container = document.getElementById('planList');
+      if (plans.length === 0) {
+        container.innerHTML = `<p class="text-xs text-gray-500 text-center py-8">还没有任何计划动作，点击右上角添加吧！</p>`;
+        return;
+      }
+      container.innerHTML = plans.map(p => `
+        <div class="bg-dark-800 border border-dark-700 p-4 rounded-2xl flex items-center justify-between">
+          <div class="space-y-1">
+            <span class="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-md border border-emerald-500/20">${p.category}</span>
+            <h3 class="font-bold text-sm text-white">${p.name}</h3>
+            <p class="text-xs text-gray-400">建议训练：${p.targetSets} 组</p>
+          </div>
+          <button onclick="deletePlan('${p.id}')" class="text-gray-500 hover:text-red-400 p-2">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+          </button>
+        </div>
+      `).join('');
+      lucide.createIcons();
+    }
+
+    // 2. 渲染训练打卡表单
+    function renderLogForm() {
+      const container = document.getElementById('logExerciseList');
+      if (plans.length === 0) {
+        container.innerHTML = `<p class="text-xs text-gray-500 text-center py-8">请先在“计划”页添加动作再来打卡</p>`;
+        return;
+      }
+
+      container.innerHTML = plans.map(p => {
+        let setsHTML = '';
+        for (let i = 1; i <= p.targetSets; i++) {
+          setsHTML += `
+            <div class="grid grid-cols-3 gap-2 items-center text-xs">
+              <span class="text-gray-400">第 ${i} 组</span>
+              <input type="number" placeholder="重量(kg)" data-ex="${p.id}" data-set="${i}" data-field="weight" class="bg-dark-900 border border-dark-600 rounded-lg px-2 py-1.5 text-center text-white focus:border-emerald-500">
+              <input type="number" placeholder="次数" data-ex="${p.id}" data-set="${i}" data-field="reps" class="bg-dark-900 border border-dark-600 rounded-lg px-2 py-1.5 text-center text-white focus:border-emerald-500" onchange="startRestTimer(60)">
+            </div>
+          `;
+        }
+        return `
+          <div class="bg-dark-800 border border-dark-700 p-4 rounded-2xl space-y-3">
+            <h3 class="font-bold text-sm text-white flex items-center justify-between">
+              ${p.name}
+              <span class="text-xs text-emerald-400 font-normal">${p.category}</span>
+            </h3>
+            <div class="space-y-2">
+              ${setsHTML}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // 开启休息倒计时
+    function startRestTimer(seconds) {
+      clearInterval(timerInterval);
+      let count = seconds;
+      const timerBar = document.getElementById('timerBar');
+      const timerText = document.getElementById('timerText');
+      timerBar.classList.remove('hidden');
+      timerText.innerText = count;
+
+      timerInterval = setInterval(() => {
+        count--;
+        timerText.innerText = count;
+        if (count <= 0) {
+          stopTimer();
+        }
+      }, 1000);
+    }
+
+    function stopTimer() {
+      clearInterval(timerInterval);
+      document.getElementById('timerBar').classList.add('hidden');
+    }
+
+    // 保存今日打卡数据
+    function finishWorkout() {
+      const inputs = document.querySelectorAll('#logExerciseList input');
+      let totalVolume = 0;
+      let logDetail = [];
+
+      inputs.forEach(input => {
+        const weight = parseFloat(input.value) || 0;
+        const reps = parseFloat(input.getAttribute('data-field') === 'reps' ? input.value : 0) || 0;
+        if (input.getAttribute('data-field') === 'weight') {
+          const repsInput = document.querySelector(`input[data-ex="${input.getAttribute('data-ex')}"][data-set="${input.getAttribute('data-set')}"][data-field="reps"]`);
+          const repsVal = parseFloat(repsInput?.value) || 0;
+          totalVolume += weight * repsVal;
+        }
+      });
+
+      const newLog = {
+        id: Date.now().toString(),
+        date: new Date().toLocaleDateString('zh-CN'),
+        time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+        volume: totalVolume
+      };
+
+      logs.unshift(newLog);
+      localStorage.setItem('fitflex_logs', JSON.stringify(logs));
+
+      alert(`恭喜！完成打卡！\n今日总训练容量: ${totalVolume} kg`);
+      switchTab('stats');
+    }
+
+    // 3. 渲染数据图表与统计
+    function renderStats() {
+      document.getElementById('totalDays').innerText = `${logs.length} 天`;
+      const weekVolumeSum = logs.reduce((acc, cur) => acc + cur.volume, 0);
+      document.getElementById('weeklyVolume').innerText = `${weekVolumeSum} kg`;
+
+      // 渲染打卡历史
+      const historyContainer = document.getElementById('historyLogs');
+      if (logs.length === 0) {
+        historyContainer.innerHTML = `<p class="text-gray-500 py-2">暂无打卡记录</p>`;
+      } else {
+        historyContainer.innerHTML = logs.slice(0, 5).map(l => `
+          <div class="flex justify-between py-2 text-gray-300">
+            <span>${l.date} ${l.time}</span>
+            <span class="text-emerald-400 font-bold">${l.volume} kg</span>
+          </div>
+        `).join('');
+      }
+
+      // 渲染图表
+      const ctx = document.getElementById('volumeChart').getContext('2d');
+      const recentLogs = [...logs].reverse().slice(-7);
+      const labels = recentLogs.map(l => l.date.split('/')[2] || l.date);
+      const data = recentLogs.map(l => l.volume);
+
+      if (chartInstance) chartInstance.destroy();
+
+      chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels.length ? labels : ['无数据'],
+          datasets: [{
+            label: '训练容量 (kg)',
+            data: data.length ? data : [0],
+            borderColor: '#10b981',
+            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            fill: true,
+            tension: 0.3
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { color: '#6b7280' }, grid: { display: false } },
+            y: { ticks: { color: '#6b7280' }, grid: { color: '#21262d' } }
+          }
+        }
+      });
+    }
+
+    // 弹窗与动作增删
+    function openAddExerciseModal() {
+      document.getElementById('addModal').classList.remove('hidden');
+    }
+    function closeAddExerciseModal() {
+      document.getElementById('addModal').classList.add('hidden');
+    }
+    function saveNewExercise() {
+      const name = document.getElementById('inputExName').value.trim();
+      const category = document.getElementById('inputExCategory').value;
+      const sets = parseInt(document.getElementById('inputExSets').value) || 4;
+
+      if (!name) return alert('请输入动作名称');
+
+      plans.push({ id: Date.now().toString(), name, category, targetSets: sets });
+      localStorage.setItem('fitflex_plans', JSON.stringify(plans));
+
+      document.getElementById('inputExName').value = '';
+      closeAddExerciseModal();
+      renderPlans();
+    }
+    function deletePlan(id) {
+      if (confirm('确认删除该动作吗？')) {
+        plans = plans.filter(p => p.id !== id);
+        localStorage.setItem('fitflex_plans', JSON.stringify(plans));
+        renderPlans();
+      }
+    }
+  </script>
+</body>
+</html>
