@@ -2,8 +2,8 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>FitFlex - 个人健身计划与记录</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>FitFlex - Apple Style Gym Companion</title>
 
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -12,423 +12,332 @@
       theme: {
         extend: {
           colors: {
-            brand: {
-              400: '#34d399',
-              500: '#10b981',
-              600: '#059669',
-              accent: '#22c55e',
-            },
-            dark: {
-              900: '#0d1117',
-              800: '#161b22',
-              700: '#21262d',
-              600: '#30363d',
+            apple: {
+              bg: '#F2F2F7',      // iOS 经典浅灰背景
+              card: '#FFFFFF',    // 纯白圆角卡片
+              blue: '#007AFF',    // Apple 经典科技蓝
+              gray: '#8E8E93',    // iOS 辅助灰
+              lightGray: '#E5E5EA',
+              border: '#E5E5EA'
             }
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Display"', '"SF Pro Text"', 'sans-serif']
           }
         }
       }
     }
   </script>
 
-  <!-- Chart.js CDN -->
+  <!-- Chart.js & Lucide Icons -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
 
   <style>
     body {
-      background-color: #0d1117;
-      color: #f0f6fc;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #F2F2F7;
+      color: #1C1C1E;
       -webkit-tap-highlight-color: transparent;
     }
-    .bottom-nav-blur {
-      background: rgba(22, 27, 34, 0.85);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
+    .apple-glass {
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
     }
-    input, select, button {
-      font-size: 16px !important; /* 防止 iOS 自动放大 */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
     }
   </style>
 </head>
-<body class="pb-24 pt-4 px-4 min-h-screen flex flex-col justify-between max-w-md mx-auto">
+<body class="min-h-screen flex flex-col justify-between max-w-md mx-auto relative antialiased pb-28">
 
-  <!-- 顶部 Header -->
-  <header class="flex items-center justify-between py-2 mb-4 border-b border-dark-700">
-    <div class="flex items-center space-x-2">
-      <div class="bg-gradient-to-r from-emerald-500 to-green-400 p-2 rounded-xl text-black font-bold">
-        <i data-lucide="dumbbell" class="w-6 h-6"></i>
-      </div>
-      <div>
-        <h1 class="text-xl font-black tracking-tight text-white">FitFlex</h1>
-        <p class="text-xs text-gray-400">智能健身计划与记录</p>
-      </div>
+  <!-- 顶部状态与 Search -->
+  <header class="px-5 pt-4 pb-2 flex justify-between items-center bg-[#F2F2F7] sticky top-0 z-30">
+    <div>
+      <h1 class="text-2xl font-black tracking-tight text-black">FitFlex</h1>
     </div>
-    <div class="text-right">
-      <span id="todayDate" class="text-xs text-emerald-400 font-medium"></span>
+    <div class="flex items-center gap-3">
+      <button class="w-8 h-8 rounded-full bg-white flex items-center justify-center text-apple-blue shadow-sm border border-apple-border">
+        <i data-lucide="search" class="w-4 h-4"></i>
+      </button>
+      <button class="w-8 h-8 rounded-full bg-apple-blue flex items-center justify-center text-white shadow-sm">
+        <i data-lucide="plus" class="w-5 h-5"></i>
+      </button>
     </div>
   </header>
 
-  <!-- 倒计时/休息提示悬浮框 -->
-  <div id="timerBar" class="hidden fixed top-2 left-4 right-4 max-w-md mx-auto bg-emerald-500 text-black font-bold p-3 rounded-2xl shadow-lg flex items-center justify-between z-50">
-    <div class="flex items-center space-x-2">
-      <i data-lucide="timer" class="w-5 h-5"></i>
-      <span>休息时间：<span id="timerText">60</span> 秒</span>
-    </div>
-    <button onclick="stopTimer()" class="bg-black text-white px-3 py-1 rounded-xl text-xs">跳过</button>
-  </div>
+  <!-- 主内容切换区 -->
+  <main class="flex-1 px-4">
 
-  <!-- 内容切换区域 -->
-  <main class="flex-1">
-
-    <!-- 1. 制定计划页 (Tab 1) -->
-    <section id="tab-plan" class="space-y-4">
-      <div class="flex justify-between items-center">
-        <h2 class="text-lg font-bold flex items-center gap-2">
-          <i data-lucide="calendar-plus" class="w-5 h-5 text-emerald-400"></i> 我的训练计划
-        </h2>
-        <button onclick="openAddExerciseModal()" class="bg-emerald-500 hover:bg-emerald-600 text-black font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1 shadow-md">
-          <i data-lucide="plus" class="w-4 h-4"></i> 添加动作
-        </button>
-      </div>
-
-      <!-- 计划动作列表 -->
-      <div id="planList" class="space-y-3">
-        <!-- JS 动态渲染 -->
-      </div>
-    </section>
-
-    <!-- 2. 训练打卡/记录页 (Tab 2) -->
-    <section id="tab-log" class="hidden space-y-4">
-      <div class="flex justify-between items-center">
-        <h2 class="text-lg font-bold flex items-center gap-2">
-          <i data-lucide="play-circle" class="w-5 h-5 text-emerald-400"></i> 今日打卡打卡
-        </h2>
-        <span class="text-xs bg-dark-700 px-2.5 py-1 rounded-full text-gray-300" id="currentWorkoutDay"></span>
-      </div>
-
-      <div id="logExerciseList" class="space-y-4">
-        <!-- JS 动态渲染 -->
-      </div>
-
-      <button onclick="finishWorkout()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-black font-bold py-3.5 rounded-2xl text-base shadow-lg flex items-center justify-center gap-2 mt-6">
-        <i data-lucide="check-circle-2" class="w-5 h-5"></i> 完成今日训练并打卡
-      </button>
-    </section>
-
-    <!-- 3. 数据统计与分析 (Tab 3) -->
-    <section id="tab-stats" class="hidden space-y-4">
-      <h2 class="text-lg font-bold flex items-center gap-2">
-        <i data-lucide="line-chart" class="w-5 h-5 text-emerald-400"></i> 训练容量与趋势
-      </h2>
-
-      <!-- 卡片统计概览 -->
-      <div class="grid grid-cols-2 gap-3">
-        <div class="bg-dark-800 p-4 rounded-2xl border border-dark-700">
-          <p class="text-xs text-gray-400">本周累计容量</p>
-          <p class="text-xl font-bold text-emerald-400 mt-1" id="weeklyVolume">0 kg</p>
+    <!-- 1. TAB: 训练 (Home/Plan) -->
+    <section id="tab-train" class="space-y-4">
+      <!-- 饮食记录环形卡片 -->
+      <div class="bg-white rounded-3xl p-4 shadow-sm border border-apple-border space-y-3">
+        <div class="flex justify-between items-center">
+          <span class="font-bold text-sm text-black">饮食记录</span>
+          <span class="text-xs text-apple-gray">0 / 目标 -- 大卡</span>
         </div>
-        <div class="bg-dark-800 p-4 rounded-2xl border border-dark-700">
-          <p class="text-xs text-gray-400">累计打卡天数</p>
-          <p class="text-xl font-bold text-emerald-400 mt-1" id="totalDays">0 天</p>
+        <div class="grid grid-cols-4 gap-2 text-center py-1">
+          <div class="flex flex-col items-center">
+            <div class="w-12 h-12 rounded-full border-2 border-amber-400 flex items-center justify-center text-xs font-bold">0</div>
+            <span class="text-[10px] text-apple-gray mt-1">蛋白质(g)</span>
+          </div>
+          <div class="flex flex-col items-center">
+            <div class="w-12 h-12 rounded-full border-2 border-blue-400 flex items-center justify-center text-xs font-bold">0</div>
+            <span class="text-[10px] text-apple-gray mt-1">碳水(g)</span>
+          </div>
+          <div class="flex flex-col items-center">
+            <div class="w-12 h-12 rounded-full border-2 border-rose-400 flex items-center justify-center text-xs font-bold">0</div>
+            <span class="text-[10px] text-apple-gray mt-1">脂肪(g)</span>
+          </div>
+          <div class="flex flex-col items-center">
+            <div class="w-12 h-12 rounded-full border-2 border-teal-400 flex items-center justify-center text-xs font-bold">0</div>
+            <span class="text-[10px] text-apple-gray mt-1">饮水(ml)</span>
+          </div>
         </div>
       </div>
 
-      <!-- 容量趋势图表 -->
-      <div class="bg-dark-800 p-4 rounded-2xl border border-dark-700">
-        <h3 class="text-xs text-gray-400 mb-3">近7次训练总容量 (kg)</h3>
-        <canvas id="volumeChart" class="w-full h-48"></canvas>
+      <!-- 计划分类标签 -->
+      <div class="space-y-3">
+        <div class="flex space-x-6 border-b border-apple-border pb-2 text-sm font-bold">
+          <button class="text-apple-blue border-b-2 border-apple-blue pb-1">官方计划</button>
+          <button class="text-apple-gray">个人模版</button>
+          <button class="text-apple-gray">个人计划 (AI)</button>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div class="bg-white rounded-2xl p-3 shadow-sm border border-apple-border space-y-2">
+            <div class="w-full h-24 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center text-white font-bold">减脂塑形</div>
+            <h3 class="font-bold text-sm">男生减脂塑形捷径</h3>
+            <p class="text-[10px] text-apple-gray">高效打卡 · 保持高代谢</p>
+          </div>
+          <div class="bg-white rounded-2xl p-3 shadow-sm border border-apple-border space-y-2">
+            <div class="w-full h-24 bg-gradient-to-br from-pink-400 to-rose-500 rounded-xl flex items-center justify-center text-white font-bold">全身紧致</div>
+            <h3 class="font-bold text-sm">力量增肌强化</h3>
+            <p class="text-[10px] text-apple-gray">雕刻线条 · 强化核心</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. TAB: 动作库 (Exercise Library) -->
+    <section id="tab-action" class="hidden flex gap-3 h-[78vh]">
+      <!-- 左侧大部位侧边栏 -->
+      <div class="w-20 bg-white rounded-2xl p-2 space-y-3 overflow-y-auto no-scrollbar shadow-sm border border-apple-border text-xs font-semibold text-center">
+        <button onclick="selectCategory('胸')" class="w-full py-2.5 rounded-xl bg-apple-blue text-white shadow-sm">胸部</button>
+        <button onclick="selectCategory('背')" class="w-full py-2.5 rounded-xl text-apple-gray hover:bg-apple-bg">背部</button>
+        <button onclick="selectCategory('腿')" class="w-full py-2.5 rounded-xl text-apple-gray hover:bg-apple-bg">腿部</button>
+        <button onclick="selectCategory('肩')" class="w-full py-2.5 rounded-xl text-apple-gray hover:bg-apple-bg">肩部</button>
+        <button onclick="selectCategory('手臂')" class="w-full py-2.5 rounded-xl text-apple-gray hover:bg-apple-bg">手臂</button>
+        <button onclick="selectCategory('核心')" class="w-full py-2.5 rounded-xl text-apple-gray hover:bg-apple-bg">核心</button>
       </div>
 
-      <!-- 打卡历史列表 -->
-      <div class="bg-dark-800 p-4 rounded-2xl border border-dark-700 space-y-3">
-        <h3 class="text-xs text-gray-400">最近打卡记录</h3>
-        <div id="historyLogs" class="space-y-2 text-xs divide-y divide-dark-700">
-          <!-- JS 动态渲染 -->
+      <!-- 右侧动作网格区 -->
+      <div class="flex-1 space-y-3 overflow-y-auto no-scrollbar">
+        <!-- 顶部二级小筛选 -->
+        <div class="flex gap-2 overflow-x-auto no-scrollbar text-xs">
+          <span class="px-3 py-1.5 rounded-full bg-white font-medium shadow-sm border border-apple-border text-black whitespace-nowrap">全部器械</span>
+          <span class="px-3 py-1.5 rounded-full bg-white/60 text-apple-gray whitespace-nowrap">杠铃</span>
+          <span class="px-3 py-1.5 rounded-full bg-white/60 text-apple-gray whitespace-nowrap">哑铃</span>
+          <span class="px-3 py-1.5 rounded-full bg-white/60 text-apple-gray whitespace-nowrap">固定器械</span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2.5">
+          <div class="bg-white p-3 rounded-2xl shadow-sm border border-apple-border flex flex-col items-center text-center space-y-2">
+            <div class="w-14 h-14 bg-apple-bg rounded-xl flex items-center justify-center text-apple-blue font-bold">胸</div>
+            <span class="text-xs font-bold text-black">杠铃卧推</span>
+            <span class="text-[10px] text-apple-gray bg-apple-bg px-2 py-0.5 rounded-full">杠铃</span>
+          </div>
+          <div class="bg-white p-3 rounded-2xl shadow-sm border border-apple-border flex flex-col items-center text-center space-y-2">
+            <div class="w-14 h-14 bg-apple-bg rounded-xl flex items-center justify-center text-apple-blue font-bold">胸</div>
+            <span class="text-xs font-bold text-black">哑铃卧推</span>
+            <span class="text-[10px] text-apple-gray bg-apple-bg px-2 py-0.5 rounded-full">哑铃</span>
+          </div>
+          <div class="bg-white p-3 rounded-2xl shadow-sm border border-apple-border flex flex-col items-center text-center space-y-2">
+            <div class="w-14 h-14 bg-apple-bg rounded-xl flex items-center justify-center text-apple-blue font-bold">胸</div>
+            <span class="text-xs font-bold text-black">上斜卧推</span>
+            <span class="text-[10px] text-apple-gray bg-apple-bg px-2 py-0.5 rounded-full">杠铃</span>
+          </div>
+          <div class="bg-white p-3 rounded-2xl shadow-sm border border-apple-border flex flex-col items-center text-center space-y-2">
+            <div class="w-14 h-14 bg-apple-bg rounded-xl flex items-center justify-center text-apple-blue font-bold">胸</div>
+            <span class="text-xs font-bold text-black">绳索夹胸</span>
+            <span class="text-[10px] text-apple-gray bg-apple-bg px-2 py-0.5 rounded-full">器械</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. TAB: 挑战 (Challenges) -->
+    <section id="tab-challenge" class="hidden space-y-4">
+      <div class="bg-white p-5 rounded-3xl shadow-sm border border-apple-border space-y-3">
+        <h3 class="font-bold text-base text-black">连续训练打卡</h3>
+        <p class="text-xs text-apple-gray">坚持打卡提升体能与肌肉塑造</p>
+        <div class="flex justify-between items-center pt-2">
+          <span class="text-2xl font-black text-apple-blue">5 <span class="text-xs font-normal text-black">天连续</span></span>
+          <button class="bg-apple-blue text-white px-4 py-2 rounded-2xl text-xs font-bold shadow-md">去打卡</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. TAB: 历史/统计 (Analytics) -->
+    <section id="tab-history" class="hidden space-y-4">
+      <!-- 顶部时间分段控制 -->
+      <div class="bg-white/80 p-1 rounded-2xl border border-apple-border flex text-xs font-medium text-center shadow-sm">
+        <button class="flex-1 py-1.5 rounded-xl bg-apple-blue text-white font-bold shadow-sm">周</button>
+        <button class="flex-1 py-1.5 text-apple-gray">月</button>
+        <button class="flex-1 py-1.5 text-apple-gray">年</button>
+      </div>
+
+      <!-- 人体肌群热力卡片 -->
+      <div class="bg-white p-4 rounded-3xl shadow-sm border border-apple-border space-y-3 text-center">
+        <span class="text-xs text-apple-gray font-medium">人体肌肉训练分布概览</span>
+        <div class="h-40 bg-apple-bg rounded-2xl flex items-center justify-center text-apple-gray text-xs border border-dashed border-apple-border">
+          🧍‍♂️ 肌群高亮图谱绘制区 (胸/背/腿)
+        </div>
+        <div class="flex justify-center gap-4 text-xs text-apple-gray">
+          <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-apple-blue"></span> 重点受刺激肌群</span>
+          <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-blue-200"></span> 辅助受力肌群</span>
+        </div>
+      </div>
+
+      <!-- 趋势图表卡片 -->
+      <div class="bg-white p-4 rounded-3xl shadow-sm border border-apple-border space-y-2">
+        <div class="flex justify-between items-center">
+          <h3 class="font-bold text-sm">平均每周训练时长</h3>
+          <span class="text-xs text-emerald-500 font-bold">+1.5 小时</span>
+        </div>
+        <canvas id="appleChart" class="w-full h-40"></canvas>
+      </div>
+    </section>
+
+    <!-- 5. TAB: 我的 (Profile) -->
+    <section id="tab-profile" class="hidden space-y-4">
+      <!-- 个人信息头 -->
+      <div class="bg-white p-4 rounded-3xl shadow-sm border border-apple-border flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 rounded-full bg-apple-blue/10 text-apple-blue font-black flex items-center justify-center text-lg">ACE</div>
+          <div>
+            <h3 class="font-bold text-base text-black">Ace</h3>
+            <p class="text-xs text-apple-gray">训记 ID: 6360593 · <span class="text-amber-500 font-medium">永久 Pro 会员</span></p>
+          </div>
+        </div>
+        <i data-lucide="chevron-right" class="w-5 h-5 text-apple-gray"></i>
+      </div>
+
+      <!-- 苹果健康风格分组卡片 -->
+      <div class="bg-white rounded-3xl shadow-sm border border-apple-border divide-y divide-apple-border text-sm">
+        <div class="p-3.5 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-7 h-7 rounded-lg bg-blue-500 text-white flex items-center justify-center"><i data-lucide="user" class="w-4 h-4"></i></div>
+            <span class="font-medium">身体数据</span>
+          </div>
+          <i data-lucide="chevron-right" class="w-4 h-4 text-apple-gray"></i>
+        </div>
+        <div class="p-3.5 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-7 h-7 rounded-lg bg-indigo-500 text-white flex items-center justify-center"><i data-lucide="calculator" class="w-4 h-4"></i></div>
+            <span class="font-medium">RM 计算器</span>
+          </div>
+          <i data-lucide="chevron-right" class="w-4 h-4 text-apple-gray"></i>
+        </div>
+        <div class="p-3.5 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-7 h-7 rounded-lg bg-rose-500 text-white flex items-center justify-center"><i data-lucide="heart" class="w-4 h-4"></i></div>
+            <span class="font-medium">Apple 运动健康同步</span>
+          </div>
+          <i data-lucide="chevron-right" class="w-4 h-4 text-apple-gray"></i>
         </div>
       </div>
     </section>
 
   </main>
 
-  <!-- 底部导航栏 -->
-  <nav class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bottom-nav-blur border-t border-dark-700 px-6 py-2.5 flex justify-between items-center z-40">
-    <button onclick="switchTab('plan')" id="nav-plan" class="flex flex-col items-center text-emerald-400">
-      <i data-lucide="clipboard-list" class="w-5 h-5"></i>
-      <span class="text-[10px] mt-1 font-medium">计划</span>
-    </button>
-    <button onclick="switchTab('log')" id="nav-log" class="flex flex-col items-center text-gray-500">
-      <i data-lucide="dumbbell" class="w-5 h-5"></i>
-      <span class="text-[10px] mt-1 font-medium">打卡</span>
-    </button>
-    <button onclick="switchTab('stats')" id="nav-stats" class="flex flex-col items-center text-gray-500">
-      <i data-lucide="bar-chart-3" class="w-5 h-5"></i>
-      <span class="text-[10px] mt-1 font-medium">数据</span>
-    </button>
-  </nav>
+  <!-- iOS 悬浮极简玻璃导航栏与训练发车按钮 -->
+  <div class="fixed bottom-4 left-4 right-4 max-w-md mx-auto flex items-center gap-2 z-50">
+    <nav class="flex-1 apple-glass rounded-full px-3 py-2 border border-white/60 shadow-xl flex justify-around items-center text-apple-gray">
+      <button onclick="switchTab('train')" id="nav-train" class="flex flex-col items-center text-apple-blue">
+        <i data-lucide="clipboard-list" class="w-5 h-5"></i>
+        <span class="text-[9px] mt-0.5 font-semibold">训练</span>
+      </button>
+      <button onclick="switchTab('challenge')" id="nav-challenge" class="flex flex-col items-center">
+        <i data-lucide="star" class="w-5 h-5"></i>
+        <span class="text-[9px] mt-0.5 font-semibold">挑战</span>
+      </button>
+      <button onclick="switchTab('action')" id="nav-action" class="flex flex-col items-center">
+        <i data-lucide="activity" class="w-5 h-5"></i>
+        <span class="text-[9px] mt-0.5 font-semibold">动作</span>
+      </button>
+      <button onclick="switchTab('history')" id="nav-history" class="flex flex-col items-center">
+        <i data-lucide="clock" class="w-5 h-5"></i>
+        <span class="text-[9px] mt-0.5 font-semibold">历史</span>
+      </button>
+      <button onclick="switchTab('profile')" id="nav-profile" class="flex flex-col items-center">
+        <i data-lucide="user" class="w-5 h-5"></i>
+        <span class="text-[9px] mt-0.5 font-semibold">我的</span>
+      </button>
+    </nav>
 
-  <!-- 弹窗：添加动作 -->
-  <div id="addModal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-end justify-center p-4">
-    <div class="bg-dark-800 border border-dark-700 w-full max-w-md rounded-3xl p-5 space-y-4 animate-in fade-in slide-in-from-bottom duration-200">
-      <div class="flex justify-between items-center">
-        <h3 class="font-bold text-white">添加训练动作</h3>
-        <button onclick="closeAddExerciseModal()" class="text-gray-400"><i data-lucide="x" class="w-5 h-5"></i></button>
-      </div>
-
-      <div class="space-y-3">
-        <div>
-          <label class="text-xs text-gray-400 mb-1 block">动作名称</label>
-          <input type="text" id="inputExName" placeholder="例如：杠铃卧推 / 哑铃深蹲" class="w-full bg-dark-900 border border-dark-600 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500">
-        </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="text-xs text-gray-400 mb-1 block">目标部位</label>
-            <select id="inputExCategory" class="w-full bg-dark-900 border border-dark-600 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500">
-              <option value="胸部">胸部</option>
-              <option value="背部">背部</option>
-              <option value="腿部">腿部</option>
-              <option value="肩部">肩部</option>
-              <option value="手臂">手臂</option>
-              <option value="核心">核心</option>
-              <option value="有氧/自重">有氧/自重</option>
-            </select>
-          </div>
-          <div>
-            <label class="text-xs text-gray-400 mb-1 block">目标组数</label>
-            <input type="number" id="inputExSets" value="4" class="w-full bg-dark-900 border border-dark-600 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500">
-          </div>
-        </div>
-      </div>
-
-      <button onclick="saveNewExercise()" class="w-full bg-emerald-500 text-black font-bold py-3 rounded-xl text-sm">保存并添加</button>
-    </div>
+    <!-- 右侧 Apple 经典高亮训练按钮 -->
+    <button onclick="alert('开始今日训练！')" class="w-14 h-14 rounded-full bg-apple-blue text-white shadow-xl flex flex-col items-center justify-center shrink-0 active:scale-95 transition-transform">
+      <i data-lucide="play" class="w-5 h-5 fill-current"></i>
+      <span class="text-[9px] font-bold mt-0.5">训练</span>
+    </button>
   </div>
 
-  <!-- JavaScript 核心逻辑 -->
   <script>
-    // 初始化数据
-    const defaultPlan = [
-      { id: '1', name: '杠铃卧推', category: '胸部', targetSets: 4 },
-      { id: '2', name: '上斜哑铃卧推', category: '胸部', targetSets: 3 },
-      { id: '3', name: '绳索夹胸', category: '胸部', targetSets: 4 },
-    ];
-
-    let plans = JSON.parse(localStorage.getItem('fitflex_plans')) || defaultPlan;
-    let logs = JSON.parse(localStorage.getItem('fitflex_logs')) || [];
-    let activeTab = 'plan';
-    let timerInterval = null;
+    let activeTab = 'train';
     let chartInstance = null;
 
-    // 页面加载
     document.addEventListener('DOMContentLoaded', () => {
       lucide.createIcons();
-      document.getElementById('todayDate').innerText = new Date().toLocaleDateString('zh-CN', { month: 'short', day: 'numeric', weekday: 'short' });
-      renderPlans();
-      renderLogForm();
     });
 
-    // 标签页切换
     function switchTab(tab) {
       activeTab = tab;
-      ['plan', 'log', 'stats'].forEach(t => {
+      ['train', 'challenge', 'action', 'history', 'profile'].forEach(t => {
         document.getElementById(`tab-${t}`).classList.add('hidden');
-        document.getElementById(`nav-${t}`).className = "flex flex-col items-center text-gray-500";
+        document.getElementById(`nav-${t}`).classList.remove('text-apple-blue');
+        document.getElementById(`nav-${t}`).classList.add('text-apple-gray');
       });
 
       document.getElementById(`tab-${tab}`).classList.remove('hidden');
-      document.getElementById(`nav-${tab}`).className = "flex flex-col items-center text-emerald-400";
+      document.getElementById(`nav-${tab}`).classList.add('text-apple-blue');
+      document.getElementById(`nav-${tab}`).classList.remove('text-apple-gray');
 
-      if (tab === 'stats') renderStats();
-      if (tab === 'log') renderLogForm();
+      if (tab === 'history') initAppleChart();
     }
 
-    // 1. 渲染计划列表
-    function renderPlans() {
-      const container = document.getElementById('planList');
-      if (plans.length === 0) {
-        container.innerHTML = `<p class="text-xs text-gray-500 text-center py-8">还没有任何计划动作，点击右上角添加吧！</p>`;
-        return;
-      }
-      container.innerHTML = plans.map(p => `
-        <div class="bg-dark-800 border border-dark-700 p-4 rounded-2xl flex items-center justify-between">
-          <div class="space-y-1">
-            <span class="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-md border border-emerald-500/20">${p.category}</span>
-            <h3 class="font-bold text-sm text-white">${p.name}</h3>
-            <p class="text-xs text-gray-400">建议训练：${p.targetSets} 组</p>
-          </div>
-          <button onclick="deletePlan('${p.id}')" class="text-gray-500 hover:text-red-400 p-2">
-            <i data-lucide="trash-2" class="w-4 h-4"></i>
-          </button>
-        </div>
-      `).join('');
-      lucide.createIcons();
-    }
-
-    // 2. 渲染训练打卡表单
-    function renderLogForm() {
-      const container = document.getElementById('logExerciseList');
-      if (plans.length === 0) {
-        container.innerHTML = `<p class="text-xs text-gray-500 text-center py-8">请先在“计划”页添加动作再来打卡</p>`;
-        return;
-      }
-
-      container.innerHTML = plans.map(p => {
-        let setsHTML = '';
-        for (let i = 1; i <= p.targetSets; i++) {
-          setsHTML += `
-            <div class="grid grid-cols-3 gap-2 items-center text-xs">
-              <span class="text-gray-400">第 ${i} 组</span>
-              <input type="number" placeholder="重量(kg)" data-ex="${p.id}" data-set="${i}" data-field="weight" class="bg-dark-900 border border-dark-600 rounded-lg px-2 py-1.5 text-center text-white focus:border-emerald-500">
-              <input type="number" placeholder="次数" data-ex="${p.id}" data-set="${i}" data-field="reps" class="bg-dark-900 border border-dark-600 rounded-lg px-2 py-1.5 text-center text-white focus:border-emerald-500" onchange="startRestTimer(60)">
-            </div>
-          `;
-        }
-        return `
-          <div class="bg-dark-800 border border-dark-700 p-4 rounded-2xl space-y-3">
-            <h3 class="font-bold text-sm text-white flex items-center justify-between">
-              ${p.name}
-              <span class="text-xs text-emerald-400 font-normal">${p.category}</span>
-            </h3>
-            <div class="space-y-2">
-              ${setsHTML}
-            </div>
-          </div>
-        `;
-      }).join('');
-    }
-
-    // 开启休息倒计时
-    function startRestTimer(seconds) {
-      clearInterval(timerInterval);
-      let count = seconds;
-      const timerBar = document.getElementById('timerBar');
-      const timerText = document.getElementById('timerText');
-      timerBar.classList.remove('hidden');
-      timerText.innerText = count;
-
-      timerInterval = setInterval(() => {
-        count--;
-        timerText.innerText = count;
-        if (count <= 0) {
-          stopTimer();
-        }
-      }, 1000);
-    }
-
-    function stopTimer() {
-      clearInterval(timerInterval);
-      document.getElementById('timerBar').classList.add('hidden');
-    }
-
-    // 保存今日打卡数据
-    function finishWorkout() {
-      const inputs = document.querySelectorAll('#logExerciseList input');
-      let totalVolume = 0;
-      let logDetail = [];
-
-      inputs.forEach(input => {
-        const weight = parseFloat(input.value) || 0;
-        const reps = parseFloat(input.getAttribute('data-field') === 'reps' ? input.value : 0) || 0;
-        if (input.getAttribute('data-field') === 'weight') {
-          const repsInput = document.querySelector(`input[data-ex="${input.getAttribute('data-ex')}"][data-set="${input.getAttribute('data-set')}"][data-field="reps"]`);
-          const repsVal = parseFloat(repsInput?.value) || 0;
-          totalVolume += weight * repsVal;
-        }
-      });
-
-      const newLog = {
-        id: Date.now().toString(),
-        date: new Date().toLocaleDateString('zh-CN'),
-        time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
-        volume: totalVolume
-      };
-
-      logs.unshift(newLog);
-      localStorage.setItem('fitflex_logs', JSON.stringify(logs));
-
-      alert(`恭喜！完成打卡！\n今日总训练容量: ${totalVolume} kg`);
-      switchTab('stats');
-    }
-
-    // 3. 渲染数据图表与统计
-    function renderStats() {
-      document.getElementById('totalDays').innerText = `${logs.length} 天`;
-      const weekVolumeSum = logs.reduce((acc, cur) => acc + cur.volume, 0);
-      document.getElementById('weeklyVolume').innerText = `${weekVolumeSum} kg`;
-
-      // 渲染打卡历史
-      const historyContainer = document.getElementById('historyLogs');
-      if (logs.length === 0) {
-        historyContainer.innerHTML = `<p class="text-gray-500 py-2">暂无打卡记录</p>`;
-      } else {
-        historyContainer.innerHTML = logs.slice(0, 5).map(l => `
-          <div class="flex justify-between py-2 text-gray-300">
-            <span>${l.date} ${l.time}</span>
-            <span class="text-emerald-400 font-bold">${l.volume} kg</span>
-          </div>
-        `).join('');
-      }
-
-      // 渲染图表
-      const ctx = document.getElementById('volumeChart').getContext('2d');
-      const recentLogs = [...logs].reverse().slice(-7);
-      const labels = recentLogs.map(l => l.date.split('/')[2] || l.date);
-      const data = recentLogs.map(l => l.volume);
-
+    function initAppleChart() {
+      const ctx = document.getElementById('appleChart').getContext('2d');
       if (chartInstance) chartInstance.destroy();
 
       chartInstance = new Chart(ctx, {
-        type: 'line',
+        type: 'bar',
         data: {
-          labels: labels.length ? labels : ['无数据'],
+          labels: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
           datasets: [{
-            label: '训练容量 (kg)',
-            data: data.length ? data : [0],
-            borderColor: '#10b981',
-            backgroundColor: 'rgba(16, 185, 129, 0.1)',
-            fill: true,
-            tension: 0.3
+            data: [1.2, 0.8, 1.5, 0, 1.0, 2.0, 0.5],
+            backgroundColor: '#007AFF',
+            borderRadius: 8
           }]
         },
         options: {
           responsive: true,
           plugins: { legend: { display: false } },
           scales: {
-            x: { ticks: { color: '#6b7280' }, grid: { display: false } },
-            y: { ticks: { color: '#6b7280' }, grid: { color: '#21262d' } }
+            x: { grid: { display: false } },
+            y: { grid: { color: '#E5E5EA' } }
           }
         }
       });
     }
 
-    // 弹窗与动作增删
-    function openAddExerciseModal() {
-      document.getElementById('addModal').classList.remove('hidden');
-    }
-    function closeAddExerciseModal() {
-      document.getElementById('addModal').classList.add('hidden');
-    }
-    function saveNewExercise() {
-      const name = document.getElementById('inputExName').value.trim();
-      const category = document.getElementById('inputExCategory').value;
-      const sets = parseInt(document.getElementById('inputExSets').value) || 4;
-
-      if (!name) return alert('请输入动作名称');
-
-      plans.push({ id: Date.now().toString(), name, category, targetSets: sets });
-      localStorage.setItem('fitflex_plans', JSON.stringify(plans));
-
-      document.getElementById('inputExName').value = '';
-      closeAddExerciseModal();
-      renderPlans();
-    }
-    function deletePlan(id) {
-      if (confirm('确认删除该动作吗？')) {
-        plans = plans.filter(p => p.id !== id);
-        localStorage.setItem('fitflex_plans', JSON.stringify(plans));
-        renderPlans();
-      }
+    function selectCategory(catName) {
+      // 部位选择切换
     }
   </script>
 </body>
